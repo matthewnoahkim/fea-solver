@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "dev": "vercel dev",
-    "build": "vercel build",
     "deploy": "vercel --prod",
     "lint": "eslint api/",
     "test": "node --test tests/"
@@ -21,10 +20,9 @@
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
-    "eslint": "^8.56.0",
-    "vercel": "^33.0.0"
+    "eslint": "^8.56.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x"
   }
 }
