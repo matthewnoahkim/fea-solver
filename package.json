@@ -1,0 +1,30 @@
+{
+  "name": "fea-api-gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for FEA Compute Server",
+  "main": "api/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "deploy": "vercel --prod",
+    "lint": "eslint api/",
+    "test": "node --test tests/"
+  },
+  "keywords": [
+    "fea",
+    "finite-element-analysis",
+    "structural-analysis",
+    "api-gateway"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

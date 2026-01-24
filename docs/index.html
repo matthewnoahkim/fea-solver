@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FEA Solver API Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #1e3a5f;
+            --navy-light: #2d5a87;
+            --navy-dark: #0f2744;
+            --text: #1e3a5f;
+            --text-light: #4a6785;
+            --text-muted: #7a8fa3;
+            --bg: #ffffff;
+            --bg-code: #f8f9fb;
+            --border: #e5e9ee;
+            --accent: #1e3a5f;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        code, pre {
+            font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+        }
+
+        a {
+            color: var(--navy);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Layout */
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            border-right: 1px solid var(--border);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            background: var(--bg);
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--navy);
+        }
+
+        .logo-version {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 2px;
+        }
+
+        .nav-section {
+            padding: 16px 0;
+        }
+
+        .nav-title {
+            padding: 8px 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            color: var(--text-light);
+            font-size: 14px;
+            transition: all 0.15s;
+        }
+
+        .nav-link:hover {
+            color: var(--navy);
+            background: #f5f7f9;
+            text-decoration: none;
+        }
+
+        .nav-link.active {
+            color: var(--navy);
+            background: #f0f4f8;
+            font-weight: 500;
+        }
+
+        .nav-method {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.3px;
+        }
+
+        .method-get { background: #e8f5e9; color: #2e7d32; }
+        .method-post { background: #e3f2fd; color: #1565c0; }
+        .method-delete { background: #ffebee; color: #c62828; }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            margin-left: 260px;
+        }
+
+        /* Header */
+        .header {
+            padding: 60px 80px 40px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 12px;
+        }
+
+        .header-description {
+            font-size: 17px;
+            color: var(--text-light);
+            max-width: 600px;
+        }
+
+        .base-url {
+            margin-top: 24px;
+            padding: 12px 16px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--navy);
+            display: inline-block;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 80px 80px;
+            max-width: 900px;
+        }
+
+        section {
+            padding-top: 48px;
+            scroll-margin-top: 20px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--navy);
+            margin: 32px 0 12px;
+        }
+
+        h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 24px 0 8px;
+        }
+
+        p {
+            color: var(--text-light);
+            margin-bottom: 16px;
+        }
+
+        /* Endpoint */
+        .endpoint {
+            margin: 24px 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .endpoint-header:hover {
+            background: #f5f7f9;
+        }
+
+        .endpoint-method {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .endpoint-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--navy);
+        }
+
+        .endpoint-desc {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-left: auto;
+        }
+
+        .endpoint-body {
+            padding: 20px;
+            display: none;
+        }
+
+        .endpoint-body.open {
+            display: block;
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f0f2f5;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .code-copy {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .code-copy:hover {
+            color: var(--navy);
+        }
+
+        pre {
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--navy-dark);
+        }
+
+        code {
+            background: var(--bg-code);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--navy);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #fafbfc;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        td {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            color: var(--text-light);
+        }
+
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--navy);
+        }
+
+        .param-type {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: #f0f2f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .required {
+            font-size: 10px;
+            color: #c62828;
+            margin-left: 6px;
+        }
+
+        .optional {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 6px;
+        }
+
+        /* Response codes */
+        .response-list {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 12px 0;
+        }
+
+        .response-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .response-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .code-2xx { color: #2e7d32; }
+        .code-4xx { color: #f57c00; }
+        .code-5xx { color: #c62828; }
+
+        /* Alert */
+        .alert {
+            padding: 14px 16px;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-size: 14px;
+            border-left: 3px solid;
+        }
+
+        .alert-info {
+            background: #f5f9ff;
+            border-color: var(--navy);
+            color: var(--text-light);
+        }
+
+        .alert-title {
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+
+        /* Steps */
+        .steps {
+            margin: 20px 0;
+        }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .step-num {
+            width: 24px;
+            height: 24px;
+            background: var(--navy);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+
+        .step-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Syntax highlighting (minimal) */
+        .token-key { color: #1565c0; }
+        .token-string { color: #2e7d32; }
+        .token-number { color: #c62828; }
+        .token-boolean { color: #7b1fa2; }
+        .token-null { color: #757575; }
+        .token-comment { color: #9e9e9e; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar {
+                display: none;
+            }
+            .main {
+                margin-left: 0;
+            }
+            .header, .content {
+                padding-left: 24px;
+                padding-right: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">FEA Solver API</div>
+                <div class="logo-version">v1.0.0</div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Getting Started</div>
+                <a href="#introduction" class="nav-link active">Introduction</a>
+                <a href="#quickstart" class="nav-link">Quick Start</a>
+                <a href="#authentication" class="nav-link">Authentication</a>
+                <a href="#errors" class="nav-link">Error Handling</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Endpoints</div>
+                <a href="#submit-analysis" class="nav-link">
+                    <span class="nav-method method-post">POST</span>
+                    Submit Analysis
+                </a>
+                <a href="#job-status" class="nav-link">
+                    <span class="nav-method method-get">GET</span>
+                    Job Status
+                </a>
+                <a href="#job-results" class="nav-link">
+                    <span class="nav-method method-get">GET</span>
+                    Job Results
+                </a>
+                <a href="#job-files" class="nav-link">
+                    <span class="nav-method method-get">GET</span>
+                    Download Files
+                </a>
+                <a href="#cancel-job" class="nav-link">
+                    <span class="nav-method method-delete">DEL</span>
+                    Cancel Job
+                </a>
+                <a href="#mesh-quality" class="nav-link">
+                    <span class="nav-method method-post">POST</span>
+                    Mesh Quality
+                </a>
+                <a href="#materials" class="nav-link">
+                    <span class="nav-method method-get">GET</span>
+                    Materials
+                </a>
+                <a href="#health" class="nav-link">
+                    <span class="nav-method method-get">GET</span>
+                    Health Check
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Reference</div>
+                <a href="#mesh-types" class="nav-link">Mesh Types</a>
+                <a href="#boundary-conditions" class="nav-link">Boundary Conditions</a>
+                <a href="#loads-ref" class="nav-link">Load Types</a>
+                <a href="#units" class="nav-link">Unit Systems</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <header class="header">
+                <h1>FEA Solver API</h1>
+                <p class="header-description">
+                    REST API for 3D static structural finite element analysis. 
+                    Submit analysis jobs, retrieve stress and displacement results, 
+                    and integrate FEA capabilities into your applications.
+                </p>
+                <div class="base-url">https://fea-solver.vercel.app</div>
+            </header>
+
+            <div class="content">
+                <!-- Introduction -->
+                <section id="introduction">
+                    <h2>Introduction</h2>
+                    <p>
+                        The FEA Solver API provides programmatic access to a 3D static structural 
+                        finite element analysis engine built on deal.II. Submit meshes, boundary 
+                        conditions, and loads to receive detailed stress, displacement, and 
+                        safety factor results.
+                    </p>
+                    <p>
+                        The API supports isotropic and orthotropic materials, various boundary 
+                        condition types, and multiple load types including pressure, point forces, 
+                        gravity, and thermal loads.
+                    </p>
+                </section>
+
+                <!-- Quick Start -->
+                <section id="quickstart">
+                    <h2>Quick Start</h2>
+                    <p>Get started with your first FEA analysis in four steps.</p>
+
+                    <div class="steps">
+                        <div class="step">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <div class="step-title">Submit an Analysis Job</div>
+                                <div class="step-desc">POST your mesh, boundary conditions, and loads to <code>/api/analyze</code></div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">2</div>
+                            <div class="step-content">
+                                <div class="step-title">Receive Job ID</div>
+                                <div class="step-desc">The API returns a unique job ID to track your analysis</div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">3</div>
+                            <div class="step-content">
+                                <div class="step-title">Poll for Status</div>
+                                <div class="step-desc">Check progress at <code>/api/jobs/{id}</code> until status is "completed"</div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">4</div>
+                            <div class="step-content">
+                                <div class="step-title">Retrieve Results</div>
+                                <div class="step-desc">Get results at <code>/api/jobs/{id}/results</code> or download VTK files</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3>Example Request</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span>curl</span>
+                            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre>curl -X POST https://fea-solver.vercel.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mesh": {
+      "type": "box",
+      "min": [0, 0, 0],
+      "max": [100, 10, 10],
+      "subdivisions": [20, 4, 4]
+    },
+    "materials": {
+      "default": "steel_structural"
+    },
+    "boundary_conditions": [
+      {
+        "type": "fixed",
+        "target": {"type": "boundary_id", "id": 0}
+      }
+    ],
+    "loads": [
+      {
+        "type": "surface_force",
+        "target": {"type": "boundary_id", "id": 1},
+        "force_per_area": [0, 0, -1000000]
+      }
+    ]
+  }'</pre>
+                    </div>
+
+                    <h3>Example Response</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"job_id"</span>: <span class="token-string">"fea_20260124_143052_847291"</span>,
+  <span class="token-key">"status"</span>: <span class="token-string">"queued"</span>,
+  <span class="token-key">"queue_position"</span>: <span class="token-number">1</span>,
+  <span class="token-key">"message"</span>: <span class="token-string">"Analysis job submitted successfully"</span>
+}</pre>
+                    </div>
+                </section>
+
+                <!-- Authentication -->
+                <section id="authentication">
+                    <h2>Authentication</h2>
+                    <p>The API currently supports public access for evaluation purposes.</p>
+                    <div class="alert alert-info">
+                        <div class="alert-title">Rate Limiting</div>
+                        Public API is limited to 10 requests/minute and 100 requests/day per IP address.
+                    </div>
+                </section>
+
+                <!-- Error Handling -->
+                <section id="errors">
+                    <h2>Error Handling</h2>
+                    <p>The API uses standard HTTP status codes and returns error details in JSON format.</p>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>200</td><td>Success</td></tr>
+                            <tr><td>202</td><td>Accepted - Job submitted or still processing</td></tr>
+                            <tr><td>400</td><td>Bad Request - Invalid input</td></tr>
+                            <tr><td>404</td><td>Not Found - Job or resource not found</td></tr>
+                            <tr><td>429</td><td>Too Many Requests - Rate limit exceeded</td></tr>
+                            <tr><td>503</td><td>Service Unavailable</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h4>Error Response Format</h4>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"error"</span>: <span class="token-string">"Validation failed"</span>,
+  <span class="token-key">"details"</span>: [<span class="token-string">"Missing required field: mesh"</span>]
+}</pre>
+                    </div>
+                </section>
+
+                <!-- Submit Analysis -->
+                <section id="submit-analysis">
+                    <h2>Submit Analysis</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-post">POST</span>
+                            <span class="endpoint-path">/api/analyze</span>
+                            <span class="endpoint-desc">Submit a new analysis job</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Submits a new structural analysis job. Returns immediately with a job ID for tracking.</p>
+
+                            <h4>Request Body</h4>
+                            <table>
+                                <thead>
+                                    <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="param-name">mesh</span><span class="required">required</span></td>
+                                        <td><span class="param-type">object</span></td>
+                                        <td>Mesh definition (box, cylinder, or file)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="param-name">boundary_conditions</span><span class="required">required</span></td>
+                                        <td><span class="param-type">array</span></td>
+                                        <td>Array of boundary conditions</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="param-name">materials</span><span class="optional">optional</span></td>
+                                        <td><span class="param-type">object</span></td>
+                                        <td>Material assignments (defaults to steel)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="param-name">loads</span><span class="optional">optional</span></td>
+                                        <td><span class="param-type">array</span></td>
+                                        <td>Array of load definitions</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="param-name">solver_options</span><span class="optional">optional</span></td>
+                                        <td><span class="param-type">object</span></td>
+                                        <td>Solver configuration</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="param-name">units</span><span class="optional">optional</span></td>
+                                        <td><span class="param-type">object</span></td>
+                                        <td>Unit system (SI, SI_MM, US_CUSTOMARY)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <h4>Response</h4>
+                            <div class="response-list">
+                                <div class="response-item"><span class="response-code code-2xx">202</span> Job accepted</div>
+                                <div class="response-item"><span class="response-code code-4xx">400</span> Validation error</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Job Status -->
+                <section id="job-status">
+                    <h2>Job Status</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-get">GET</span>
+                            <span class="endpoint-path">/api/jobs/{job_id}</span>
+                            <span class="endpoint-desc">Get job status and progress</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Returns the current status of an analysis job.</p>
+
+                            <h4>Job Status Values</h4>
+                            <table>
+                                <thead><tr><th>Status</th><th>Description</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>queued</code></td><td>Waiting in queue</td></tr>
+                                    <tr><td><code>running</code></td><td>Currently executing</td></tr>
+                                    <tr><td><code>completed</code></td><td>Finished successfully</td></tr>
+                                    <tr><td><code>failed</code></td><td>Encountered an error</td></tr>
+                                    <tr><td><code>cancelled</code></td><td>Cancelled by user</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4>Example Response</h4>
+                            <div class="code-block">
+                                <div class="code-header"><span>json</span></div>
+                                <pre>{
+  <span class="token-key">"job_id"</span>: <span class="token-string">"fea_20260124_143052_847291"</span>,
+  <span class="token-key">"status"</span>: <span class="token-string">"running"</span>,
+  <span class="token-key">"progress"</span>: <span class="token-number">0.45</span>,
+  <span class="token-key">"current_stage"</span>: <span class="token-string">"Assembling system matrix"</span>
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Job Results -->
+                <section id="job-results">
+                    <h2>Job Results</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-get">GET</span>
+                            <span class="endpoint-path">/api/jobs/{job_id}/results</span>
+                            <span class="endpoint-desc">Get analysis results</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Returns complete analysis results when job status is "completed".</p>
+
+                            <h4>Example Response</h4>
+                            <div class="code-block">
+                                <div class="code-header"><span>json</span></div>
+                                <pre>{
+  <span class="token-key">"job_id"</span>: <span class="token-string">"fea_20260124_143052_847291"</span>,
+  <span class="token-key">"status"</span>: <span class="token-string">"completed"</span>,
+  <span class="token-key">"displacements"</span>: {
+    <span class="token-key">"max"</span>: {<span class="token-key">"x"</span>: <span class="token-number">0.00012</span>, <span class="token-key">"y"</span>: <span class="token-number">0.00024</span>, <span class="token-key">"z"</span>: <span class="token-number">-0.00856</span>}
+  },
+  <span class="token-key">"stress"</span>: {
+    <span class="token-key">"von_mises"</span>: {<span class="token-key">"max"</span>: <span class="token-number">125000000</span>, <span class="token-key">"avg"</span>: <span class="token-number">45000000</span>}
+  },
+  <span class="token-key">"reactions"</span>: {
+    <span class="token-key">"total_force"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">10000</span>]
+  },
+  <span class="token-key">"safety_factors"</span>: {
+    <span class="token-key">"min"</span>: <span class="token-number">2.0</span>,
+    <span class="token-key">"avg"</span>: <span class="token-number">5.5</span>
+  }
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Download Files -->
+                <section id="job-files">
+                    <h2>Download Files</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-get">GET</span>
+                            <span class="endpoint-path">/api/jobs/{job_id}/files/{filename}</span>
+                            <span class="endpoint-desc">Download output files</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Downloads output files from a completed analysis.</p>
+
+                            <h4>Available Files</h4>
+                            <table>
+                                <thead><tr><th>Filename</th><th>Description</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>results.vtu</code></td><td>VTK file for ParaView visualization</td></tr>
+                                    <tr><td><code>results.csv</code></td><td>Nodal results in CSV format</td></tr>
+                                    <tr><td><code>results.json</code></td><td>Complete results in JSON</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Cancel Job -->
+                <section id="cancel-job">
+                    <h2>Cancel Job</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-delete">DELETE</span>
+                            <span class="endpoint-path">/api/jobs/{job_id}</span>
+                            <span class="endpoint-desc">Cancel a queued job</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Cancels a job that is still in the queue. Running jobs cannot be cancelled.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Mesh Quality -->
+                <section id="mesh-quality">
+                    <h2>Mesh Quality</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-post">POST</span>
+                            <span class="endpoint-path">/api/mesh/quality</span>
+                            <span class="endpoint-desc">Analyze mesh quality</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Performs mesh quality analysis without running a full FEA analysis.</p>
+
+                            <h4>Example Response</h4>
+                            <div class="code-block">
+                                <div class="code-header"><span>json</span></div>
+                                <pre>{
+  <span class="token-key">"num_elements"</span>: <span class="token-number">3200</span>,
+  <span class="token-key">"num_nodes"</span>: <span class="token-number">14641</span>,
+  <span class="token-key">"metrics"</span>: {
+    <span class="token-key">"jacobian_ratio"</span>: {<span class="token-key">"min"</span>: <span class="token-number">0.85</span>, <span class="token-key">"avg"</span>: <span class="token-number">0.95</span>},
+    <span class="token-key">"aspect_ratio"</span>: {<span class="token-key">"max"</span>: <span class="token-number">2.5</span>, <span class="token-key">"avg"</span>: <span class="token-number">1.8</span>}
+  },
+  <span class="token-key">"quality_acceptable"</span>: <span class="token-boolean">true</span>
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Materials -->
+                <section id="materials">
+                    <h2>Materials</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-get">GET</span>
+                            <span class="endpoint-path">/api/materials</span>
+                            <span class="endpoint-desc">List available materials</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Returns the list of preset materials available for analyses.</p>
+
+                            <h4>Available Materials</h4>
+                            <table>
+                                <thead><tr><th>ID</th><th>Name</th><th>E (GPa)</th><th>ν</th><th>σy (MPa)</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>steel_structural</code></td><td>Structural Steel</td><td>200</td><td>0.30</td><td>250</td></tr>
+                                    <tr><td><code>aluminum_6061_t6</code></td><td>Aluminum 6061-T6</td><td>68.9</td><td>0.33</td><td>276</td></tr>
+                                    <tr><td><code>titanium_ti6al4v</code></td><td>Titanium Ti-6Al-4V</td><td>113.8</td><td>0.342</td><td>880</td></tr>
+                                    <tr><td><code>stainless_304</code></td><td>Stainless Steel 304</td><td>193</td><td>0.29</td><td>215</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Health -->
+                <section id="health">
+                    <h2>Health Check</h2>
+                    
+                    <div class="endpoint">
+                        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span class="endpoint-method method-get">GET</span>
+                            <span class="endpoint-path">/api/health</span>
+                            <span class="endpoint-desc">Server health status</span>
+                        </div>
+                        <div class="endpoint-body open">
+                            <p>Returns the health status of the API gateway and compute server.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Mesh Types Reference -->
+                <section id="mesh-types">
+                    <h2>Mesh Types</h2>
+
+                    <h3>Box</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"box"</span>,
+  <span class="token-key">"min"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">0</span>],
+  <span class="token-key">"max"</span>: [<span class="token-number">100</span>, <span class="token-number">10</span>, <span class="token-number">10</span>],
+  <span class="token-key">"subdivisions"</span>: [<span class="token-number">20</span>, <span class="token-number">4</span>, <span class="token-number">4</span>]
+}</pre>
+                    </div>
+
+                    <h3>Cylinder</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"cylinder"</span>,
+  <span class="token-key">"radius"</span>: <span class="token-number">50</span>,
+  <span class="token-key">"height"</span>: <span class="token-number">100</span>,
+  <span class="token-key">"n_radial"</span>: <span class="token-number">8</span>,
+  <span class="token-key">"n_axial"</span>: <span class="token-number">10</span>
+}</pre>
+                    </div>
+
+                    <h3>File</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"file"</span>,
+  <span class="token-key">"format"</span>: <span class="token-string">"msh"</span>,
+  <span class="token-key">"data"</span>: <span class="token-string">"..."</span>
+}</pre>
+                    </div>
+                </section>
+
+                <!-- Boundary Conditions Reference -->
+                <section id="boundary-conditions">
+                    <h2>Boundary Conditions</h2>
+
+                    <h3>Fixed</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"fixed"</span>,
+  <span class="token-key">"target"</span>: {<span class="token-key">"type"</span>: <span class="token-string">"boundary_id"</span>, <span class="token-key">"id"</span>: <span class="token-number">0</span>}
+}</pre>
+                    </div>
+
+                    <h3>Displacement</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"displacement"</span>,
+  <span class="token-key">"target"</span>: {<span class="token-key">"type"</span>: <span class="token-string">"boundary_id"</span>, <span class="token-key">"id"</span>: <span class="token-number">1</span>},
+  <span class="token-key">"values"</span>: [<span class="token-number">0.001</span>, <span class="token-null">null</span>, <span class="token-null">null</span>]
+}</pre>
+                    </div>
+
+                    <h3>Symmetry</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"symmetry"</span>,
+  <span class="token-key">"target"</span>: {<span class="token-key">"type"</span>: <span class="token-string">"boundary_id"</span>, <span class="token-key">"id"</span>: <span class="token-number">2</span>},
+  <span class="token-key">"plane_normal"</span>: [<span class="token-number">1</span>, <span class="token-number">0</span>, <span class="token-number">0</span>]
+}</pre>
+                    </div>
+
+                    <h3>Target Types</h3>
+                    <table>
+                        <thead><tr><th>Type</th><th>Example</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>boundary_id</code></td><td><code>{"type": "boundary_id", "id": 0}</code></td></tr>
+                            <tr><td><code>point</code></td><td><code>{"type": "point", "location": [0,0,0]}</code></td></tr>
+                            <tr><td><code>box</code></td><td><code>{"type": "box", "min": [0,0,0], "max": [10,10,10]}</code></td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Loads Reference -->
+                <section id="loads-ref">
+                    <h2>Load Types</h2>
+
+                    <h3>Gravity</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{<span class="token-key">"type"</span>: <span class="token-string">"gravity"</span>, <span class="token-key">"acceleration"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">-9.81</span>]}</pre>
+                    </div>
+
+                    <h3>Pressure</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"pressure"</span>,
+  <span class="token-key">"target"</span>: {<span class="token-key">"type"</span>: <span class="token-string">"boundary_id"</span>, <span class="token-key">"id"</span>: <span class="token-number">1</span>},
+  <span class="token-key">"value"</span>: <span class="token-number">1000000</span>
+}</pre>
+                    </div>
+
+                    <h3>Surface Force</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"surface_force"</span>,
+  <span class="token-key">"target"</span>: {<span class="token-key">"type"</span>: <span class="token-string">"boundary_id"</span>, <span class="token-key">"id"</span>: <span class="token-number">1</span>},
+  <span class="token-key">"force_per_area"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">-1000</span>]
+}</pre>
+                    </div>
+
+                    <h3>Point Force</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"point_force"</span>,
+  <span class="token-key">"location"</span>: [<span class="token-number">100</span>, <span class="token-number">5</span>, <span class="token-number">5</span>],
+  <span class="token-key">"force"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">-1000</span>]
+}</pre>
+                    </div>
+
+                    <h3>Thermal</h3>
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{
+  <span class="token-key">"type"</span>: <span class="token-string">"thermal"</span>,
+  <span class="token-key">"reference_temperature"</span>: <span class="token-number">20</span>,
+  <span class="token-key">"applied_temperature"</span>: <span class="token-number">120</span>
+}</pre>
+                    </div>
+                </section>
+
+                <!-- Units Reference -->
+                <section id="units">
+                    <h2>Unit Systems</h2>
+                    <p>All calculations are performed internally in SI units. Specify your input unit system for automatic conversion.</p>
+
+                    <table>
+                        <thead><tr><th>System</th><th>Length</th><th>Force</th><th>Stress</th><th>Temperature</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>SI</code></td><td>m</td><td>N</td><td>Pa</td><td>K</td></tr>
+                            <tr><td><code>SI_MM</code></td><td>mm</td><td>N</td><td>MPa</td><td>°C</td></tr>
+                            <tr><td><code>US_CUSTOMARY</code></td><td>in</td><td>lbf</td><td>psi</td><td>°F</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="code-block">
+                        <div class="code-header"><span>json</span></div>
+                        <pre>{"units": {"type": "SI_MM"}}</pre>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleEndpoint(header) {
+            const body = header.nextElementSibling;
+            body.classList.toggle('open');
+        }
+
+        function copyCode(button) {
+            const pre = button.closest('.code-block').querySelector('pre');
+            navigator.clipboard.writeText(pre.textContent).then(() => {
+                button.textContent = 'Copied';
+                setTimeout(() => button.textContent = 'Copy', 2000);
+            });
+        }
+
+        // Active nav link
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Scroll spy
+        window.addEventListener('scroll', () => {
+            let current = '';
+            document.querySelectorAll('section[id]').forEach(section => {
+                if (scrollY >= section.offsetTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

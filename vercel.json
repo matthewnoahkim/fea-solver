@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "name": "fea-api-gateway",
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "docs/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/docs",
+      "dest": "/docs/index.html"
+    },
+    {
+      "src": "/docs/(.*)",
+      "dest": "/docs/$1"
+    },
+    {
+      "src": "/api/analyze",
+      "dest": "/api/analyze.js",
+      "methods": ["POST", "OPTIONS"]
+    },
+    {
+      "src": "/api/jobs/([^/]+)/results$",
+      "dest": "/api/jobs/[id]/results.js",
+      "methods": ["GET", "OPTIONS"]
+    },
+    {
+      "src": "/api/jobs/([^/]+)/files/(.+)$",
+      "dest": "/api/jobs/[id]/files/[filename].js",
+      "methods": ["GET", "OPTIONS"]
+    },
+    {
+      "src": "/api/jobs/([^/]+)$",
+      "dest": "/api/jobs/[id].js",
+      "methods": ["GET", "DELETE", "OPTIONS"]
+    },
+    {
+      "src": "/api/mesh/quality",
+      "dest": "/api/mesh.js",
+      "methods": ["POST", "OPTIONS"]
+    },
+    {
+      "src": "/api/materials",
+      "dest": "/api/materials.js",
+      "methods": ["GET", "OPTIONS"]
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/health.js",
+      "methods": ["GET", "OPTIONS"]
+    },
+    {
+      "src": "/api/docs",
+      "dest": "/api/docs.js",
+      "methods": ["GET"]
+    },
+    {
+      "src": "/",
+      "dest": "/docs/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Requested-With" },
+        { "key": "Access-Control-Max-Age", "value": "86400" }
+      ]
+    },
+    {
+      "source": "/docs/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ],
+  "env": {
+    "COMPUTE_SERVER_URL": "@compute_server_url"
+  },
+  "regions": ["iad1"],
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
