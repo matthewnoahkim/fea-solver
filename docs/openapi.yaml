@@ -1,0 +1,631 @@
+openapi: 3.0.3
+info:
+  title: FEA Analysis API
+  description: |
+    Structural FEA API: submit jobs, poll status, fetch results. This document is the **machine-readable contract** for clients.
+    The deployed gateway proxies JSON to a compute server; **validation and solver behavior must match this spec on the compute side**
+    for fields the gateway does not reject.
+
+    ## Result quantities and units (independent of `units.type` on the request)
+
+    **`units.type` on `POST /api/analyze` only affects how numeric inputs are interpreted** (mesh coordinates, forces, pressures, etc.).
+
+    **Completed job payloads** (`GET /api/jobs/{id}/results` with `status: completed`) use **SI outputs** regardless of `units.type`:
+
+    | Field family | Unit |
+    |--------------|------|
+    | `displacements.*` (components, `magnitude` if present) | **metres (m)** |
+    | `stress.*` (e.g. von Mises) | **Pascals (Pa)** |
+    | `reactions.*` / nodal forces | **Newtons (N)** |
+    | `safety_factors.*` | **dimensionless** |
+
+    The gateway injects `results_units` (object) and `results_schema_version` on successful completed results so clients do not infer units from the request.
+
+    ## File meshes (`mesh.type: file`, `format: msh`)
+
+    - **`mesh.data`**: JSON string.
+      - If **`mesh.encoding` is omitted or `"utf8"`** (default): the string is the **entire `.msh` file as UTF-8 text** (ASCII is valid UTF-8). Use for ASCII MSH 2.2 / MSH 4 text.
+      - If **`mesh.encoding` is `"base64"`**: the string is **standard Base64** encoding of the **raw file bytes** (required for binary MSH, optional for text).
+    - **Accepted MSH**: **MSH 2.2** (ASCII) and **MSH 4.x** (ASCII or binary). Prefer **MSH 2.2 ASCII** for the widest compatibility if the mesher allows it.
+    - **`mesh.path` / `mesh.url`**: alternative sources for the same content (implementation-defined on compute).
+
+    ## `boundary_id` for uploaded meshes
+
+    For Gmsh `.msh` uploads, **`boundary_id` is the Gmsh physical tag** assigned to **boundary surface** entities (2D elements in 3D volume meshes). It is **not** an arbitrary surface index order unless the mesher exported that way as physical tags.
+
+    - Assign **Physical Surfaces** (or equivalent) in Gmsh and reference the same integer in `target.id`.
+    - **Volume-only tet meshes** without surface physical groups may not define resolvable `boundary_id` values; use **`point` or `box`** (or `path`/`url` workflows that preserve physicals).
+
+    ## Geometric targets
+
+    Supported: **`boundary_id`**, **`point`**, **`box`**. **`sphere` is not supported** — clients must not send it; the gateway returns **400** with an explicit message.
+
+    ## Gateway timeouts (Vercel proxy)
+
+    Short upstream timeouts apply: analyze submit ~55s, job status ~10s, results fetch ~30s. **Submit** should return **202** quickly with a `job_id`; long solving happens on the compute side. Poll `GET /api/jobs/{id}` until `completed` or `failed`.
+
+    If the job response body includes **`retry_after_seconds`** (integer), the gateway may set HTTP **`Retry-After`** to the same value for convenient polling.
+
+    ## Errors
+
+    Validation and solver errors use:
+
+    ```json
+    { "error": "short title", "details": ["actionable message 1", "..."] }
+    ```
+
+    Compute should use the same shape for unknown `boundary_id`, bad mesh encoding, etc.
+
+  version: 1.1.0
+
+servers:
+  - url: https://fea-solver.vercel.app
+    description: Production gateway (example)
+
+tags:
+  - name: Analysis
+  - name: Jobs
+  - name: Materials
+
+paths:
+  /api/analyze:
+    post:
+      tags: [Analysis]
+      summary: Submit analysis job
+      operationId: analyzeSubmit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '202':
+          description: Job accepted (queued)
+          headers:
+            Retry-After:
+              description: Optional hint when the queue is busy (if provided by compute).
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeAcceptedResponse'
+        '200':
+          description: Alternate success (some deployments); treat like 202 if `job_id` is present.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeAcceptedResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Gateway or compute unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Gateway timeout talking to compute on submit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get job status
+      operationId: getJobStatus
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Current job state
+          headers:
+            Retry-After:
+              description: Present when body contains `retry_after_seconds`; suggests poll interval.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Jobs]
+      summary: Cancel queued job
+      operationId: cancelJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Cancelled or acknowledged
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jobs/{id}/results:
+    get:
+      tags: [Jobs]
+      summary: Get job results
+      operationId: getJobResults
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Results or in-progress / error payload depending on `status` field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResultsResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/materials:
+    get:
+      tags: [Materials]
+      summary: List preset materials
+      operationId: listMaterials
+      responses:
+        '200':
+          description: Preset library (may include compute-specific entries)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialsResponse'
+
+components:
+  parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9_-]+$'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        message:
+          type: string
+          description: Optional human-readable duplicate of error (legacy).
+
+    AnalyzeRequest:
+      type: object
+      required: [mesh, boundary_conditions]
+      properties:
+        mesh:
+          $ref: '#/components/schemas/Mesh'
+        boundary_conditions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/BoundaryCondition'
+        loads:
+          type: array
+          items:
+            $ref: '#/components/schemas/Load'
+        materials:
+          $ref: '#/components/schemas/MaterialsInput'
+        solver_options:
+          type: object
+          additionalProperties: true
+        units:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [SI, SI_MM, US_CUSTOMARY]
+          description: >
+            Input unit system only. Does **not** change output units; see `results_units` on completed results.
+
+    Mesh:
+      oneOf:
+        - $ref: '#/components/schemas/MeshBox'
+        - $ref: '#/components/schemas/MeshCylinder'
+        - $ref: '#/components/schemas/MeshFile'
+
+    MeshBox:
+      type: object
+      required: [type, min, max]
+      properties:
+        type:
+          const: box
+        min:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+        max:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+        subdivisions:
+          type: array
+          items:
+            type: integer
+
+    MeshCylinder:
+      type: object
+      required: [type, radius, height]
+      properties:
+        type:
+          const: cylinder
+        radius:
+          type: number
+          exclusiveMinimum: 0
+        height:
+          type: number
+          exclusiveMinimum: 0
+        n_radial:
+          type: integer
+        n_axial:
+          type: integer
+
+    MeshFile:
+      type: object
+      required: [type]
+      properties:
+        type:
+          const: file
+        format:
+          type: string
+          enum: [msh]
+          description: Required when `data` is embedded.
+        encoding:
+          type: string
+          enum: [utf8, base64]
+          default: utf8
+        data:
+          type: string
+          description: UTF-8 .msh text (default) or base64 of file bytes.
+        path:
+          type: string
+        url:
+          type: string
+      description: At least one of data, path, url.
+
+    Target:
+      oneOf:
+        - $ref: '#/components/schemas/TargetBoundaryId'
+        - $ref: '#/components/schemas/TargetPoint'
+        - $ref: '#/components/schemas/TargetBox'
+
+    TargetBoundaryId:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          const: boundary_id
+        id:
+          type: integer
+          description: Gmsh physical tag on boundary surfaces for file meshes.
+
+    TargetPoint:
+      type: object
+      required: [type, location]
+      properties:
+        type:
+          const: point
+        location:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+
+    TargetBox:
+      type: object
+      required: [type, min, max]
+      properties:
+        type:
+          const: box
+        min:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+        max:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+
+    BoundaryCondition:
+      type: object
+      required: [type, target]
+      properties:
+        type:
+          type: string
+          enum: [fixed, displacement, symmetry, elastic_support]
+        target:
+          $ref: '#/components/schemas/Target'
+        values:
+          type: array
+          items:
+            nullable: true
+            type: number
+        plane_normal:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+
+    Load:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [gravity, pressure, surface_force, point_force, thermal, centrifugal]
+        target:
+          $ref: '#/components/schemas/Target'
+        acceleration:
+          type: array
+          items:
+            type: number
+        value:
+          type: number
+        force_per_area:
+          type: array
+          items:
+            type: number
+        location:
+          type: array
+          items:
+            type: number
+        force:
+          type: array
+          items:
+            type: number
+        reference_temperature:
+          type: number
+        applied_temperature:
+          type: number
+
+    MaterialsInput:
+      type: object
+      properties:
+        default:
+          oneOf:
+            - type: string
+              description: Preset id from GET /api/materials
+            - $ref: '#/components/schemas/InlineIsotropicMaterial'
+
+    InlineIsotropicMaterial:
+      type: object
+      required: [model, properties]
+      properties:
+        model:
+          type: string
+          example: isotropic_elastic
+        properties:
+          type: object
+          required: [youngs_modulus, poissons_ratio, density]
+          properties:
+            youngs_modulus:
+              type: number
+              description: Pa (SI)
+            poissons_ratio:
+              type: number
+            density:
+              type: number
+              description: kg/m³
+            thermal_expansion:
+              type: number
+              description: 1/K optional
+        yield_strength:
+          type: number
+          description: Pa optional; used for safety factors when present
+        ultimate_strength:
+          type: number
+          description: Pa optional
+
+    AnalyzeAcceptedResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          example: queued
+        queue_position:
+          type: integer
+        message:
+          type: string
+        retry_after_seconds:
+          type: integer
+          description: Suggested seconds before polling job status again.
+        estimated_duration_seconds:
+          type: integer
+          description: Optional rough wall-clock estimate for the full solve.
+
+    JobStatusResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+        progress:
+          type: number
+        current_stage:
+          type: string
+        retry_after_seconds:
+          type: integer
+        estimated_duration_seconds:
+          type: integer
+
+    ResultsUnits:
+      type: object
+      description: Always attached by gateway for completed results.
+      properties:
+        displacement:
+          const: m
+        stress:
+          const: Pa
+        force:
+          const: N
+        length:
+          const: m
+
+    DisplacementSummary:
+      type: object
+      description: Schema version 1 — minimal guaranteed shape for completed jobs (compute must populate).
+      required: [max]
+      properties:
+        max:
+          type: object
+          required: [x, y, z]
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+        min:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+        magnitude:
+          type: object
+          properties:
+            max:
+              type: number
+            min:
+              type: number
+
+    StressVonMises:
+      type: object
+      properties:
+        max:
+          type: number
+        min:
+          type: number
+        avg:
+          type: number
+
+    JobResultsResponse:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [completed, failed, queued, running]
+        results_schema_version:
+          type: string
+          example: '1'
+          description: Increment when guaranteed fields change.
+        results_units:
+          $ref: '#/components/schemas/ResultsUnits'
+        gateway_timestamp:
+          type: string
+          format: date-time
+          description: ISO time when the gateway merged metadata (completed only).
+        displacements:
+          $ref: '#/components/schemas/DisplacementSummary'
+        stress:
+          type: object
+          properties:
+            von_mises:
+              $ref: '#/components/schemas/StressVonMises'
+        reactions:
+          type: object
+          properties:
+            total_force:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items:
+                type: number
+        safety_factors:
+          type: object
+          properties:
+            min:
+              type: number
+            avg:
+              type: number
+        output_files:
+          type: array
+          items:
+            type: string
+        computation_time:
+          type: number
+          description: Seconds (optional).
+
+    MaterialPreset:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        model:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+        yield_strength:
+          type: number
+        ultimate_strength:
+          type: number
+
+    MaterialsResponse:
+      type: object
+      properties:
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialPreset'
+        source:
+          type: string
+          example: gateway_fallback

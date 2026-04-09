@@ -6,6 +6,8 @@
  * Submits a new analysis job to the compute server.
  */
 
+import { validateAnalyzeRequest } from '../lib/analyzeRequestValidation.js';
+
 const COMPUTE_SERVER = process.env.COMPUTE_SERVER_URL;
 
 export const config = {
@@ -26,60 +28,6 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 }
 
-/**
- * Validate the analysis request
- */
-function validateRequest(body) {
-  const errors = [];
-  
-  if (!body || typeof body !== 'object') {
-    errors.push('Request body must be a JSON object');
-    return errors;
-  }
-  
-  // Check required fields
-  if (!body.mesh) {
-    errors.push('Missing required field: mesh');
-  } else {
-    if (!body.mesh.type) {
-      errors.push('Missing required field: mesh.type');
-    }
-    if (body.mesh.type === 'box') {
-      if (!body.mesh.min || !Array.isArray(body.mesh.min) || body.mesh.min.length !== 3) {
-        errors.push('Box mesh requires min: [x, y, z]');
-      }
-      if (!body.mesh.max || !Array.isArray(body.mesh.max) || body.mesh.max.length !== 3) {
-        errors.push('Box mesh requires max: [x, y, z]');
-      }
-    }
-    if (body.mesh.type === 'file' && !body.mesh.data && !body.mesh.path && !body.mesh.url) {
-      errors.push('File mesh requires data, path, or url');
-    }
-  }
-  
-  if (!body.boundary_conditions) {
-    errors.push('Missing required field: boundary_conditions');
-  } else if (!Array.isArray(body.boundary_conditions)) {
-    errors.push('boundary_conditions must be an array');
-  } else if (body.boundary_conditions.length === 0) {
-    errors.push('boundary_conditions must not be empty');
-  } else {
-    // Validate each BC has a type
-    body.boundary_conditions.forEach((bc, i) => {
-      if (!bc.type) {
-        errors.push(`boundary_conditions[${i}] missing type`);
-      }
-    });
-  }
-  
-  // Validate loads if present
-  if (body.loads && !Array.isArray(body.loads)) {
-    errors.push('loads must be an array');
-  }
-  
-  return errors;
-}
-
 export default async function handler(req, res) {
   setCorsHeaders(res);
   
@@ -97,7 +45,7 @@ export default async function handler(req, res) {
   }
   
   // Validate request
-  const validationErrors = validateRequest(req.body);
+  const validationErrors = validateAnalyzeRequest(req.body);
   if (validationErrors.length > 0) {
     return res.status(400).json({
       error: 'Validation failed',
@@ -138,7 +86,11 @@ export default async function handler(req, res) {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
       return res.status(504).json({
         error: 'Gateway timeout',
-        message: 'Compute server request timed out'
+        message: 'Compute server request timed out',
+        details: [
+          'The gateway waited ~55s for the compute server to accept the job. If you received a job_id earlier, keep polling GET /api/jobs/{id}.',
+          'For large meshes, ensure the compute tier returns 202 quickly after enqueue; see docs/openapi.yaml (Gateway timeouts).'
+        ]
       });
     }
     

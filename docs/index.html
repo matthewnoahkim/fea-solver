@@ -482,12 +482,13 @@
         <nav class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">FEA Solver API</div>
-                <div class="logo-version">v1.0.0</div>
+                <div class="logo-version">v1.1.0</div>
             </div>
 
             <div class="nav-section">
                 <div class="nav-title">Getting Started</div>
                 <a href="#introduction" class="nav-link active">Introduction</a>
+                <a href="#contract" class="nav-link">Contract (OpenAPI)</a>
                 <a href="#quickstart" class="nav-link">Quick Start</a>
                 <a href="#authentication" class="nav-link">Authentication</a>
                 <a href="#errors" class="nav-link">Error Handling</a>
@@ -564,6 +565,32 @@
                         The API supports isotropic and orthotropic materials, various boundary 
                         condition types, and multiple load types including pressure, point forces, 
                         gravity, and thermal loads.
+                    </p>
+                </section>
+
+                <section id="contract">
+                    <h2>API contract (OpenAPI)</h2>
+                    <p>
+                        The canonical request/response schemas, file-mesh encoding rules, output units,
+                        and error shape are defined in the
+                        <a href="/openapi.yaml">OpenAPI 3 specification</a>
+                        (<code>/openapi.yaml</code>). The same contract is mirrored under
+                        <code>docs/openapi.yaml</code> in the repository. Integrations should codegen
+                        or validate against that file; human-readable sections below summarize it.
+                    </p>
+                    <div class="alert alert-info">
+                        <div class="alert-title">Compute server parity</div>
+                        The public gateway validates a subset of requests (targets, file mesh fields, inline materials).
+                        The compute service must enforce the same rules for anything the gateway forwards and return
+                        structured <code>{ "error", "details": [] }</code> errors for unknown <code>boundary_id</code>,
+                        bad MSH data, etc.
+                    </div>
+                    <h3>Gateway timeouts</h3>
+                    <p>
+                        Upstream calls from the gateway use short limits (~55s job submit, ~10s status, ~30s results fetch).
+                        Successful flows return <strong>202</strong> quickly with a <code>job_id</code>; the solve runs on the compute tier.
+                        Poll <code>GET /api/jobs/{id}</code> until <code>completed</code> or <code>failed</code>.
+                        When the job payload includes <code>retry_after_seconds</code>, the gateway sets HTTP <code>Retry-After</code> to match.
                     </p>
                 </section>
 
@@ -682,6 +709,11 @@
                     </table>
 
                     <h4>Error Response Format</h4>
+                    <p>
+                        Clients should read <code>details</code> (array of strings) for actionable messages, e.g.
+                        unsupported <code>sphere</code> targets, missing <code>mesh.format</code> with embedded <code>data</code>,
+                        or (from compute) <code>boundary_id 3 not found</code>.
+                    </p>
                     <div class="code-block">
                         <div class="code-header"><span>json</span></div>
                         <pre>{
@@ -778,13 +810,20 @@
                             </table>
 
                             <h4>Example Response</h4>
+                            <p>
+                                Optional fields <code>retry_after_seconds</code> and <code>estimated_duration_seconds</code>
+                                (when provided by compute) help clients pace polling; the gateway forwards them and may set
+                                <code>Retry-After</code> from <code>retry_after_seconds</code>.
+                            </p>
                             <div class="code-block">
                                 <div class="code-header"><span>json</span></div>
                                 <pre>{
   <span class="token-key">"job_id"</span>: <span class="token-string">"fea_20260124_143052_847291"</span>,
   <span class="token-key">"status"</span>: <span class="token-string">"running"</span>,
   <span class="token-key">"progress"</span>: <span class="token-number">0.45</span>,
-  <span class="token-key">"current_stage"</span>: <span class="token-string">"Assembling system matrix"</span>
+  <span class="token-key">"current_stage"</span>: <span class="token-string">"Assembling system matrix"</span>,
+  <span class="token-key">"retry_after_seconds"</span>: <span class="token-number">5</span>,
+  <span class="token-key">"estimated_duration_seconds"</span>: <span class="token-number">120</span>
 }</pre>
                             </div>
                         </div>
@@ -805,16 +844,34 @@
                             <p>Returns complete analysis results when job status is "completed".</p>
 
                             <h4>Example Response</h4>
+                            <p>
+                                For <code>status: "completed"</code>, numeric fields are in <strong>SI outputs</strong> regardless of
+                                <code>units.type</code> on the analyze request: displacements in <strong>metres</strong>, stress in
+                                <strong>Pascals</strong>, forces in <strong>Newtons</strong>. The gateway adds
+                                <code>results_schema_version</code>, <code>results_units</code>, and <code>gateway_timestamp</code>.
+                                Compute must populate at least <code>displacements.max.{x,y,z}</code> for schema version <code>1</code>;
+                                <code>von_mises.min</code>, <code>magnitude</code>, <code>output_files</code>, and
+                                <code>computation_time</code> are optional extensions.
+                            </p>
                             <div class="code-block">
                                 <div class="code-header"><span>json</span></div>
                                 <pre>{
   <span class="token-key">"job_id"</span>: <span class="token-string">"fea_20260124_143052_847291"</span>,
   <span class="token-key">"status"</span>: <span class="token-string">"completed"</span>,
+  <span class="token-key">"results_schema_version"</span>: <span class="token-string">"1"</span>,
+  <span class="token-key">"results_units"</span>: {
+    <span class="token-key">"displacement"</span>: <span class="token-string">"m"</span>,
+    <span class="token-key">"stress"</span>: <span class="token-string">"Pa"</span>,
+    <span class="token-key">"force"</span>: <span class="token-string">"N"</span>,
+    <span class="token-key">"length"</span>: <span class="token-string">"m"</span>
+  },
+  <span class="token-key">"gateway_timestamp"</span>: <span class="token-string">"2026-01-24T14:31:02.000Z"</span>,
   <span class="token-key">"displacements"</span>: {
-    <span class="token-key">"max"</span>: {<span class="token-key">"x"</span>: <span class="token-number">0.00012</span>, <span class="token-key">"y"</span>: <span class="token-number">0.00024</span>, <span class="token-key">"z"</span>: <span class="token-number">-0.00856</span>}
+    <span class="token-key">"max"</span>: {<span class="token-key">"x"</span>: <span class="token-number">0.00012</span>, <span class="token-key">"y"</span>: <span class="token-number">0.00024</span>, <span class="token-key">"z"</span>: <span class="token-number">-0.00856</span>},
+    <span class="token-key">"magnitude"</span>: {<span class="token-key">"max"</span>: <span class="token-number">0.00856</span>}
   },
   <span class="token-key">"stress"</span>: {
-    <span class="token-key">"von_mises"</span>: {<span class="token-key">"max"</span>: <span class="token-number">125000000</span>, <span class="token-key">"avg"</span>: <span class="token-number">45000000</span>}
+    <span class="token-key">"von_mises"</span>: {<span class="token-key">"max"</span>: <span class="token-number">125000000</span>, <span class="token-key">"min"</span>: <span class="token-number">1200000</span>, <span class="token-key">"avg"</span>: <span class="token-number">45000000</span>}
   },
   <span class="token-key">"reactions"</span>: {
     <span class="token-key">"total_force"</span>: [<span class="token-number">0</span>, <span class="token-number">0</span>, <span class="token-number">10000</span>]
@@ -914,6 +971,12 @@
                         <div class="endpoint-body open">
                             <p>Returns the list of preset materials available for analyses.</p>
 
+                            <p>
+                                On <code>POST /api/analyze</code>, <code>materials.default</code> may be a <strong>preset id</strong> string
+                                from this list, or an <strong>inline isotropic</strong> object with <code>model</code> (e.g. <code>isotropic_elastic</code>),
+                                <code>properties.youngs_modulus</code> (Pa), <code>poissons_ratio</code>, <code>density</code> (kg/m³), and optional
+                                <code>yield_strength</code> (Pa). See OpenAPI schema <code>InlineIsotropicMaterial</code>.
+                            </p>
                             <h4>Available Materials</h4>
                             <table>
                                 <thead><tr><th>ID</th><th>Name</th><th>E (GPa)</th><th>ν</th><th>σy (MPa)</th></tr></thead>
@@ -971,15 +1034,29 @@
 }</pre>
                     </div>
 
-                    <h3>File</h3>
+                    <h3>File (Gmsh .msh)</h3>
+                    <p>
+                        When embedding the mesh in JSON, set <code>"format": "msh"</code>. <code>mesh.data</code> is always a string:
+                        either the <strong>full file as UTF-8 text</strong> (default; use for ASCII MSH 2.2 / MSH 4 text), or
+                        <strong>standard Base64</strong> of the raw file bytes if <code>"encoding": "base64"</code> (required for binary MSH 4).
+                        Accepted formats: <strong>MSH 2.2</strong> and <strong>MSH 4.x</strong> (ASCII or binary via base64). MSH 2.2 ASCII is the safest interchange.
+                        You may use <code>path</code> or <code>url</code> instead of <code>data</code> where the deployment supports it.
+                    </p>
                     <div class="code-block">
                         <div class="code-header"><span>json</span></div>
                         <pre>{
   <span class="token-key">"type"</span>: <span class="token-string">"file"</span>,
   <span class="token-key">"format"</span>: <span class="token-string">"msh"</span>,
-  <span class="token-key">"data"</span>: <span class="token-string">"..."</span>
+  <span class="token-key">"encoding"</span>: <span class="token-string">"utf8"</span>,
+  <span class="token-key">"data"</span>: <span class="token-string">"$MeshFormat\n2.2 ..."</span>
 }</pre>
                     </div>
+                    <p>
+                        For uploaded volume meshes, <code>boundary_id</code> targets use the <strong>Gmsh physical tag</strong> on
+                        <strong>boundary surface</strong> entities (2D faces). Define Physical Surfaces in Gmsh and reference the same integer
+                        as <code>target.id</code>. Pure volume meshes without surface physicals may not support <code>boundary_id</code>;
+                        use <code>point</code> or <code>box</code> targets instead.
+                    </p>
                 </section>
 
                 <!-- Boundary Conditions Reference -->
@@ -1019,9 +1096,10 @@
                     <table>
                         <thead><tr><th>Type</th><th>Example</th></tr></thead>
                         <tbody>
-                            <tr><td><code>boundary_id</code></td><td><code>{"type": "boundary_id", "id": 0}</code></td></tr>
+                            <tr><td><code>boundary_id</code></td><td><code>{"type": "boundary_id", "id": 0}</code> — Gmsh physical tag on boundary surfaces for file meshes</td></tr>
                             <tr><td><code>point</code></td><td><code>{"type": "point", "location": [0,0,0]}</code></td></tr>
                             <tr><td><code>box</code></td><td><code>{"type": "box", "min": [0,0,0], "max": [10,10,10]}</code></td></tr>
+                            <tr><td><code>sphere</code></td><td><strong>Not supported.</strong> The gateway returns <code>400</code> with an explicit message; do not send <code>sphere</code> targets.</td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -1080,7 +1158,14 @@
                 <!-- Units Reference -->
                 <section id="units">
                     <h2>Unit Systems</h2>
-                    <p>All calculations are performed internally in SI units. Specify your input unit system for automatic conversion.</p>
+                    <p>
+                        Specify your <strong>input</strong> unit system for mesh coordinates, loads, and pressures. The solver works internally in SI.
+                    </p>
+                    <p>
+                        <strong>Result payloads</strong> (<code>GET .../results</code> when completed) are always returned in <strong>SI outputs</strong>:
+                        displacements in <strong>m</strong>, stress in <strong>Pa</strong>, reaction forces in <strong>N</strong> — independent of
+                        <code>units.type</code> on the request. The gateway adds <code>results_units</code> on completed results so clients do not infer from inputs.
+                    </p>
 
                     <table>
                         <thead><tr><th>System</th><th>Length</th><th>Force</th><th>Stress</th><th>Temperature</th></tr></thead>

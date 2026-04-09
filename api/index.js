@@ -12,6 +12,7 @@ export default function handler(req, res) {
     version: '1.0.0',
     description: '3D Static Structural Finite Element Analysis',
     documentation: '/docs',
+    openapi: '/openapi.yaml',
     endpoints: {
       analyze: {
         method: 'POST',

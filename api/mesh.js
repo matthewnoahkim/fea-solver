@@ -4,6 +4,8 @@
  * POST /api/mesh/quality - Analyze mesh quality
  */
 
+import { validateMeshObject } from '../lib/analyzeRequestValidation.js';
+
 const COMPUTE_SERVER = process.env.COMPUTE_SERVER_URL;
 
 export const config = {
@@ -25,53 +27,22 @@ function setCorsHeaders(res) {
 }
 
 /**
- * Validate mesh specification
+ * Validate mesh specification (same rules as analyze mesh subset).
  */
 function validateMesh(body) {
   const errors = [];
-  
+
   if (!body || typeof body !== 'object') {
     errors.push('Request body must be a JSON object');
     return errors;
   }
-  
+
   if (!body.mesh) {
     errors.push('Missing required field: mesh');
     return errors;
   }
-  
-  const mesh = body.mesh;
-  
-  if (!mesh.type) {
-    errors.push('Missing mesh.type');
-  } else if (!['box', 'cylinder', 'file'].includes(mesh.type)) {
-    errors.push('mesh.type must be one of: box, cylinder, file');
-  }
-  
-  if (mesh.type === 'box') {
-    if (!mesh.min || !Array.isArray(mesh.min) || mesh.min.length !== 3) {
-      errors.push('box mesh requires min: [x, y, z]');
-    }
-    if (!mesh.max || !Array.isArray(mesh.max) || mesh.max.length !== 3) {
-      errors.push('box mesh requires max: [x, y, z]');
-    }
-  }
-  
-  if (mesh.type === 'cylinder') {
-    if (typeof mesh.radius !== 'number' || mesh.radius <= 0) {
-      errors.push('cylinder mesh requires positive radius');
-    }
-    if (typeof mesh.height !== 'number' || mesh.height <= 0) {
-      errors.push('cylinder mesh requires positive height');
-    }
-  }
-  
-  if (mesh.type === 'file') {
-    if (!mesh.data && !mesh.path && !mesh.url) {
-      errors.push('file mesh requires data, path, or url');
-    }
-  }
-  
+
+  errors.push(...validateMeshObject(body.mesh));
   return errors;
 }
 

@@ -2,6 +2,7 @@
   "version": 2,
   "name": "fea-api-gateway",
   "rewrites": [
+    { "source": "/openapi.yaml", "destination": "/docs/openapi.yaml" },
     { "source": "/docs", "destination": "/docs/index.html" },
     { "source": "/", "destination": "/docs/index.html" },
     { "source": "/api/jobs/:id/results", "destination": "/api/jobs/[id]/results.js" },

@@ -6,6 +6,17 @@
 
 const COMPUTE_SERVER = process.env.COMPUTE_SERVER_URL;
 
+/** SI outputs for completed jobs — independent of request units.type (see docs/openapi.yaml). */
+const COMPLETED_RESULTS_METADATA = {
+  results_schema_version: '1',
+  results_units: {
+    length: 'm',
+    displacement: 'm',
+    stress: 'Pa',
+    force: 'N'
+  }
+};
+
 /**
  * Set CORS headers
  */
@@ -43,7 +54,8 @@ export default async function handler(req, res) {
   // Validate job ID
   if (!id || !isValidJobId(id)) {
     return res.status(400).json({
-      error: 'Invalid job ID'
+      error: 'Invalid job ID',
+      details: ['Job ID must contain only alphanumeric characters, underscores, and hyphens']
     });
   }
   
@@ -61,12 +73,13 @@ export default async function handler(req, res) {
     });
     
     const data = await response.json();
-    
-    // Add gateway metadata
-    if (response.status === 200 && data.status === 'completed') {
-      data.gateway_timestamp = new Date().toISOString();
+
+    if (response.status === 200 && data && data.status === 'completed') {
+      Object.assign(data, COMPLETED_RESULTS_METADATA, {
+        gateway_timestamp: new Date().toISOString()
+      });
     }
-    
+
     return res.status(response.status).json(data);
     
   } catch (error) {
@@ -74,12 +87,16 @@ export default async function handler(req, res) {
     
     if (error.name === 'TimeoutError') {
       return res.status(504).json({
-        error: 'Gateway timeout'
+        error: 'Gateway timeout',
+        details: [
+          'Results fetch timed out at the gateway (~30s). The job may still be running — poll GET /api/jobs/{id} and retry results when status is completed.'
+        ]
       });
     }
-    
+
     return res.status(503).json({
-      error: 'Compute server unavailable'
+      error: 'Compute server unavailable',
+      details: ['Could not reach the compute server for results']
     });
   }
 }
